@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Inmobiliaria Savino — Portafolio</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+:root{
+  --bg: #ffffff;
+  --red: #b70000;
+  --accent: #000000;
+  --muted: #555;
+  --maxw:1100px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: Arial, Helvetica, sans-serif;
+  background:var(--bg);
+  color: var(--accent);
+  -webkit-font-smoothing:antialiased;
+}
+header{
+  background: linear-gradient(90deg,var(--red),#a30000);
+  padding:18px 12px;
+  text-align:center;
+  color:#fff;
+}
+header h1{ margin:0; font-size:1.6rem; letter-spacing:0.6px; }
+
+.wrap{
+  width:94%;
+  max-width:var(--maxw);
+  margin:20px auto;
+  display:grid;
+  grid-template-columns: 1fr 360px;
+  gap:20px;
+}
+
+/* listado */
+.listado{ display:flex; flex-direction:column; gap:18px; }
+.prop{
+  background:#f8f8f8;
+  border-radius:12px;
+  padding:14px;
+  border:1px solid rgba(183,0,0,0.12);
+}
+.prop h2{ margin:0 0 6px 0; color:#000; font-size:1.05rem; }
+.meta{ display:flex; justify-content:space-between; gap:12px; font-weight:600; color:#111; margin-bottom:8px; }
+.precio{ color:#008f02; }
+.desc{ color:var(--muted); margin-bottom:10px; }
+
+.galeria{ display:flex; gap:8px; }
+.galeria img{
+  width:120px; height:84px; object-fit:cover; border-radius:8px;
+  cursor:pointer; border:2px solid transparent; transition:.15s;
+}
+.galeria img:hover{ transform:translateY(-4px); border-color:var(--red); }
+
+/* panel */
+.panel{ display:flex; flex-direction:column; gap:12px; }
+#map{ height:420px; border-radius:12px; border:2px solid var(--red); }
+
+/* contacto */
+.contacto{
+  background:#fff; color:#111; padding:12px; border-radius:10px;
+  border:1px solid rgba(183,0,0,0.2);
+}
+.contacto h3{ margin:0 0 8px 0; color:var(--red); }
+.wh-btn{
+  display:inline-block; margin-top:8px; background:var(--red); color:#fff;
+  padding:8px 12px; border-radius:8px; text-decoration:none; font-weight:700;
+}
+
+/* modal */
+#modal{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85);
+  align-items:center; justify-content:center; z-index:3000; padding:20px;
+}
+#modal img{ max-width:95%; max-height:85vh; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.6); }
+#close-x{ position:absolute; right:18px; top:18px; color:#fff; font-size:22px; cursor:pointer; }
+
+/* footer */
+footer{ text-align:center; margin:24px 0 48px 0; color:var(--red); }
+
+/* responsive */
+@media(max-width:980px){
+  .wrap{ grid-template-columns:1fr; }
+  #map{ height:320px; }
+  .galeria img{ width:86px; height:64px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Inmobiliaria Savino</h1>
+</header>
+
+<main class="wrap">
+
+  <section class="listado" id="listado">
+    <!-- PROPIEDADES INYECTADAS POR JS -->
+  </section>
+
+  <aside class="panel">
+    <div id="map"></div>
+
+    <div class="contacto">
+      <h3>Contacto</h3>
+      <p>Tel: <strong id="telefono">+54 9 11 3XX-XXXX</strong></p>
+      <p>Email: <strong>contacto@inmobiliariasavino.com</strong></p>
+      <a id="wa-link" class="wh-btn" href="#" target="_blank" rel="noopener">Contactar por WhatsApp</a>
+    </div>
+  </aside>
+
+</main>
+
+<!-- Modal -->
+<div id="modal" onclick="cerrarModal()">
+  <span id="close-x" onclick="cerrarModal()">✕</span>
+  <img id="modal-img" src="" alt="Imagen ampliada">
+</div>
+
+<footer>
+  Creada por Nicolás Savino y ChatGPT
+</footer>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// LISTA DE 10 PROPIEDADES (todas en CABA) con coordenadas aproximadas por barrio
+const propiedades = [
+  {
+    title: "Departamento 2 Amb. – La Boca",
+    price: "USD 52.000",
+    desc: "Cerca de la Bombonera. Ideal primer vivienda.",
+    address: "Brandsen 805, La Boca",
+    coords: [-34.6329, -58.3636],
+    images: [
+      "https://via.placeholder.com/800x600?text=La+Boca+1",
+      "https://via.placeholder.com/800x600?text=La+Boca+2"
+    ]
+  },
+  {
+    title: "Casa 4 Amb. – Quilmes (zona BA sur)",
+    price: "USD 138.000",
+    desc: "Patio amplio y cochera.",
+    address: "Av. Hipólito Yrigoyen 742, Quilmes (CABA prox.)",
+    coords: [-34.7033, -58.2710],
+    images: [
+      "https://via.placeholder.com/800x600?text=Quilmes+1",
+      "https://via.placeholder.com/800x600?text=Quilmes+2"
+    ]
+  },
+  {
+    title: "PH 3 Amb. – Caballito",
+    price: "USD 95.000",
+    desc: "Cerca del subte y centros comerciales.",
+    address: "Av. Rivadavia 5400, Caballito",
+    coords: [-34.6133, -58.4380],
+    images: [
+      "https://via.placeholder.com/800x600?text=Caballito+1"
+    ]
+  },
+  {
+    title: "Departamento 1 Amb. – Microcentro",
+    price: "USD 45.000",
+    desc: "Excelente inversión para alquiler temporal.",
+    address: "Florida 600, Microcentro",
+    coords: [-34.6083, -58.3720],
+    images: [
+      "https://via.placeholder.com/800x600?text=Microcentro+1"
+    ]
+  },
+  {
+    title: "Casa Quinta – Ezeiza (GBA sur)",
+    price: "USD 210.000",
+    desc: "Pileta + Parque enorme.",
+    address: "Av. Mitre 3000, Ezeiza (GBA)",
+    coords: [-34.8325, -58.4346],
+    images: [
+      "https://via.placeholder.com/800x600?text=Ezeiza+1"
+    ]
+  },
+  {
+    title: "Depto 3 Amb. – Palermo",
+    price: "USD 165.000",
+    desc: "Balcón y amenities.",
+    address: "Av. Santa Fe 3500, Palermo",
+    coords: [-34.5890, -58.4111],
+    images: [
+      "https://via.placeholder.com/800x600?text=Palermo+1"
+    ]
+  },
+  {
+    title: "Casa – San Justo",
+    price: "USD 120.000",
+    desc: "Barrio tranquilo, buenas conexiones.",
+    address: "Av. Juan Manuel de Rosas 2200, San Justo",
+    coords: [-34.6760, -58.6166],
+    images: [
+      "https://via.placeholder.com/800x600?text=San+Justo+1"
+    ]
+  },
+  {
+    title: "Depto 2 Amb. – Recoleta",
+    price: "USD 110.000",
+    desc: "Zona alta categoría.",
+    address: "Callao 1200, Recoleta",
+    coords: [-34.5896, -58.3928],
+    images: [
+      "https://via.placeholder.com/800x600?text=Recoleta+1"
+    ]
+  },
+  {
+    title: "Dúplex – Ramos Mejía",
+    price: "USD 150.000",
+    desc: "Espacios amplios y modernos.",
+    address: "Av. Rivadavia 14000, Ramos Mejía",
+    coords: [-34.6586, -58.6178],
+    images: [
+      "https://via.placeholder.com/800x600?text=Ramos+Mejia+1"
+    ]
+  },
+  {
+    title: "PH – Avellaneda",
+    price: "USD 70.000",
+    desc: "Listo para entrar a vivir.",
+    address: "Av. Mitre 800, Avellaneda",
+    coords: [-34.6720, -58.3657],
+    images: [
+      "https://via.placeholder.com/800x600?text=Avellaneda+1"
+    ]
+  }
+];
+
+// Injectar tarjetas en el listado
+const listadoEl = document.getElementById('listado');
+propiedades.forEach((p, i) => {
+  const el = document.createElement('article');
+  el.className = 'prop';
+  el.innerHTML = `
+    <h2>${p.title}</h2>
+    <div class="meta">
+      <span>${p.address}</span>
+      <span class="precio">${p.price}</span>
+    </div>
+    <p class="desc">${p.desc}</p>
+    <div class="galeria">
+      ${p.images.map(src => `<img src="${src}" alt="${p.title}" onclick="abrirModal('${src}')">`).join('')}
+    </div>
+  `;
+  listadoEl.appendChild(el);
+});
+
+// Inicializar mapa
+const map = L.map('map').setView([-34.6037, -58.3816], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Agregar marcadores
+propiedades.forEach((p) => {
+  if (p.coords && p.coords.length === 2) {
+    const m = L.marker(p.coords).addTo(map);
+    const popup = `<strong>${p.title}</strong><br>${p.address}<br><em>${p.price}</em>`;
+    m.bindPopup(popup);
+  }
+});
+
+// Modal imagen
+function abrirModal(src){
+  document.getElementById('modal-img').src = src;
+  document.getElementById('modal').style.display = 'flex';
+}
+function cerrarModal(){
+  document.getElementById('modal').style.display = 'none';
+}
+
+// Número aleatorio y WhatsApp
+const tel = '+54 9 11 ' + (Math.floor(Math.random()*9000000)+1000000).toString().replace(/(\d{3})(\d{4})/,'$1-$2');
+document.getElementById('telefono').innerText = tel;
+document.getElementById('wa-link').href = 'https://wa.me/' + tel.replace(/\D/g,'');
+
+</script>
+</body>
+</html>
